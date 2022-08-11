@@ -1,7 +1,7 @@
 // F01 all base Ver. 1.01 
-// AFL code by Bart³omiej Zieliñski  2021 
+// AFL code by Bartlomiej Zielinski  2021 
 
-//e-mail: b.zielinski@vitaltrading.pl 
+//e-mail: zielinski.b.k@gmail.com
 // V 1.01 - added checking of last fractal rejection - last fractal becomes ignored if rejected earlier
 
 //Creating candle chart
