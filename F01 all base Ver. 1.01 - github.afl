@@ -1,0 +1,237 @@
+// F01 all base Ver. 1.01 
+// AFL code by Bart³omiej Zieliñski  2021 
+
+//e-mail: b.zielinski@vitaltrading.pl 
+// V 1.01 - added checking of last fractal rejection - last fractal becomes ignored if rejected earlier
+
+//Creating candle chart
+SetChartOptions(0,chartShowArrows|chartShowDates);  
+_N(Title = StrFormat("{{NAME}} - {{INTERVAL}} {{DATE}} Open %g, Hi %g, Lo %g, Close %g (%.1f%%) {{VALUES}}", O, H, L, C, SelectedValue( ROC( C, 1 ) ) ));  
+Plot( C, "Close", ParamColor("Color", colorDefault ), styleNoTitle | ParamStyle("Style") | GetPriceStyle() );   
+
+//Setting tick size and artificial spread
+TickSize = IIf(StrFind(Name(),"JPY"),0.001,0.00001);   
+pnt = IIf(StrFind(Name(),"JPY"),0.001,0.00001);   
+spread = IIf(StrFind(Name(),"JPY"),0.01,0.0001);  
+pips = spread; 
+
+
+//Creating fractals 
+xx=BarIndex();x=xx;Lx=LastValue(x);   
+rightStrength = /*Optimize("R", 2,2,5,1);//*/ 
+IIf(StrFind(Name(),"GBPUSD"),3,
+IIf(StrFind(Name(),"GBPJPY"),3,
+IIf(StrFind(Name(),"EURJPY"),2,
+IIf(StrFind(Name(),"EURUSD"),12, 
+IIf(StrFind(Name(),"EURGBP"),2, 
+IIf(StrFind(Name(),"USDJPY"),2,2)))))) ;// F01 all*/  
+
+
+leftStrength = /*Optimize("L", 8,8,12,1);//*/ 
+IIf(StrFind(Name(),"GBPUSD"),9,
+IIf(StrFind(Name(),"GBPJPY"),13,
+IIf(StrFind(Name(),"EURJPY"),10,
+IIf(StrFind(Name(),"EURUSD"),4, 
+IIf(StrFind(Name(),"EURGBP"),8, 
+IIf(StrFind(Name(),"USDJPY"),8,8)))))) ;// F01 all*/
+Plot(rightStrength,"RS " + rightStrength,colorPink,styleNoDraw | styleOwnScale);  
+Plot(leftStrength,"LS " + leftStrength,colorGreen,styleNoDraw | styleOwnScale);  
+
+N = 1; // trades limit   
+bi=BarIndex();   
+
+pk = Ref(H>=Ref(HHV(H,leftStrength),-1) AND Ref(HHV(H,rightStrength),rightStrength)<=H,-rightstrength);   
+tr = Ref(L<=Ref(LLV(L,leftStrength),-1) AND Ref(LLV(L,rightStrength),rightStrength)>=L,-rightstrength);   
+
+for( i = 0; i < 3; i++ )   
+{   
+    VarSet( "px" + i, ValueWhen( pk, Ref(bi,-rightstrength), i ) );   
+    VarSet( "tx" + i, ValueWhen( tr, Ref(bi,-rightstrength), i ) );   
+    VarSet( "ph" + i, ValueWhen( pk, Ref(H,-rightstrength), i ) );   
+    VarSet( "tl" + i, ValueWhen( tr, Ref(L,-rightstrength), i ) );   
+}   
+ 
+   
+/*ll=tr AND tl1<tl2;   
+hl=tr AND tl1>tl2;   
+hh=pk AND ph1>ph2;   
+lh=pk AND ph1<ph2;   
+dt=pk AND ph1==ph2;   
+db=tr AND tl1==tl2;  */
+
+
+// identify new day   
+dn = DateNum();   
+newDay = dn != Ref( dn,-1);   
+  
+//Trading time 
+tn = TimeNum();   
+startTime = 70000;//Param("start",00000,000000,235500);   
+//starttime=optimize("start",40000,10000,230000,10000);  
+stl = startTime-10000;   
+endTime = 150000; //Param("end",225900,90000,235500);   
+//endtime=optimize("end",160000,10000,230000,10000);  
+etl = endTime-10000;   
+timeFlat = 160000;//Param("timeflat", 225900,140000,235500);  //flat at the open of the candle - 16:00 
+//timeFlat = optimize("flat",160000,10000,230000,10000);  
+tfl = timeFlat-10000; 
+ 
+//Daylight saving time 
+timeChange = (dn> 1070325 AND dn<1071028) OR   
+(dn> 1080330 AND dn<1081026) OR   
+(dn> 1090329 AND dn<1091025) OR   
+(dn> 1100328 AND dn<1101031) OR   
+(dn> 1110327 AND dn<1111030) OR   
+(dn> 1120325 AND dn<1121028) OR   
+(dn> 1130331 AND dn<1131027) OR   
+(dn> 1140330 AND dn<1141026) OR   
+(dn> 1150329 AND dn<1151025) OR   
+(dn> 1160327 AND dn<1161030) OR   
+(dn> 1170326 AND dn<1171029) OR  
+(dn> 1180325 AND dn<1181028) OR 
+(dn> 1190331 AND dn<1191027) OR
+(dn> 1200329 AND dn<1201025) OR
+(dn> 1210328 AND dn<1211031);  
+   
+tradingTime = IIf(timeChange,(tn>=stl AND tn<etl) ,tn>=startTime AND tn<endTime);  //Trading in selected hours
+   
+holdingTime = IIf(timeChange, tn>=stl AND tn<tfl , tn >=startTime AND tn < timeFlat); //Time of holding position
+ 
+goFlat = IIf(timeChange, tn==tfl , tn == timeFlat); //Flatten positions
+  
+ 
+//Moving averages
+SmaFast = /*Optimize("fast", 10,10,50,10);//*/ 
+IIf(StrFind(Name(),"GBPUSD"),170,
+IIf(StrFind(Name(),"GBPJPY"),100,
+IIf(StrFind(Name(),"EURJPY"),30,
+IIf(StrFind(Name(),"EURUSD"),60, 
+IIf(StrFind(Name(),"EURGBP"),30, 
+IIf(StrFind(Name(),"USDJPY"),70,250)))))) ;//F01 all*/ 
+ 
+Smaslow =/* Optimize("slow", 210, 140, 210, 10);//*/ 
+IIf(StrFind(Name(),"GBPUSD"),180,
+IIf(StrFind(Name(),"GBPJPY"),130,
+IIf(StrFind(Name(),"EURJPY"),170,
+IIf(StrFind(Name(),"EURUSD"),80, 
+IIf(StrFind(Name(),"EURGBP"),70, 
+IIf(StrFind(Name(),"USDJPY"),100,300)))))) ;//F01 all*/
+
+precision = IIf(StrFind(Name(),"JPY"),3,5); 
+FastMA = MA(C,smaFast);   
+SlowMA = MA(C,smaSlow);  
+ 
+
+Plot(ph1,"HHV",colorGrey40,styleLine);  
+Plot(tl1,"LLV",colorWhite,styleLine);  
+PlotShapes( IIf(pk, shapeSmallCircle,0) , colorLime,0,H,10);   
+PlotShapes( IIf(tr, shapeSmallCircle,0) , colorYellow,0,L,-10);   
+Plot(FastMA,"MAF " + smafast,colorRed,styleLine);  
+Plot(SlowMA,"MAS " + smaslow,colorBlue,styleLine);  
+//Plot(ph2,"HHV2",coloryellow,styledashed);  
+//Plot(tl2,"LLV2",colororange,styleDashed);  
+
+//Trend indication
+TrendUp = IIf(Ref(FastMA,-1)>Ref(SlowMA,-1),1,0);   
+TrendDown = IIf(Ref(SlowMA,-1)>Ref(FastMA,-1),1,0);   
+  
+/*PlotShapes( IIf(TrendUp, shapeSmallCircle,0) , colorblue,0,H,30);   
+PlotShapes( IIf(TrendDown, shapeSmallCircle,0) , colorred,0,L,-30);*/
+
+//Fractal rejection  
+highsincefractal = HighestSince(pk,Ref(H,-1));  
+lowsincefractal = LowestSince(tr,Ref(L,-1));   
+ 
+ 
+Plot( highsincefractal, "highsincefractal", colorgreen, styleDashed| styleNoRescale );   
+Plot( lowsincefractal, "lowsincefractal", colorViolet, styleDashed | styleNoRescale ); 
+topFraktalRejection = IIf(tradingtime, HighestSince(tradingtime, Ref(H,-1)), Null);
+bottomFraktalRejection = IIf(tradingtime, LowestSince(tradingTime, Ref(L,-1)),Null);
+RejectedHigh = Flip(topFraktalRejection > ph1, pk) ;
+RejectedLow = Flip(bottomFraktalRejection < tl1 AND bottomFraktalRejection > 0 , tr) ;
+PlotShapes( IIf(RejectedHigh, shapecircle,0) , colorLime,0,H,20);  
+PlotShapes( IIf(RejectedLow, shapecircle,0) , colorYellow,0,L,-20);
+
+//Trading rules
+//Hidden
+ 
+//One trade per day rule   
+Buy = Buy AND Sum( Buy+ short, BarsSince( newDay) +1 ) <= N;   
+Short = Short AND Sum (Short+buy, BarsSince( newDay) +1 ) <= N;
+/*inLong = Flip(Buy,Sell);
+inShort = Flip(Short, Cover);
+/*PlotShapes(shapeCircle*Inlong, colorGrey50, 0, H, 30);
+PlotShapes(shapeCircle*inShort, colorGrey50, 0, L, -30);*/
+
+/*roundPips = IIf(StrFind(Name(),"JPY"),100,10000); 
+TimeFrameSet(inDaily);
+atrDaily = ATR(100);
+TimeFrameRestore();
+atrr = TimeFrameExpand(atrDaily,inDaily) * roundPips ;
+
+MADist = IIf( inLong, ValueWhen(Buy, abs(BuyPrice - slowMA) * roundPips), ValueWhen(short, abs(ShortPrice - slowMA) * roundPips));
+
+howManyCandles = IIf( inLong, BarsSince(Cross(FastMA,slowMA)), BarsSince(Cross(slowMA,FastMA)));
+
+fractalCheck = IIf(inLong, ValueWhen(Buy, IIf(ph2 < ph1, 1 , 0)), ValueWhen(Short, IIf(tl2 > tl1, 1 , 0)));
+//fractalCheckShort = IIf( inSHort, ValueWhen(Short, IIf(tl2 < tl1, 1 , 0)), Null);
+StaticVarSet( Name() + "ATR", atrr );
+StaticVarSet( Name() + "MADist", MADist);
+StaticVarSet( Name() + "howManyCandles", howManyCandles);
+//StaticVarSet( Name() + "howManyCandlesShort", howManyCandlesShort);
+StaticVarSet( Name() + "fractalCheck", fractalCheck);
+//StaticVarSet( Name() + "fractalCheckShort", fractalCheckShort);
+
+SetCustomBacktestProc( "" );
+
+if ( Status( "action" ) == actionPortfolio )
+{
+    bo = GetBacktesterObject();
+    // run default backtest procedure without generating the trade list
+    bo.Backtest( True );
+
+    // iterate through closed trades
+    for ( trade = bo.GetFirstTrade( ); trade; trade = bo.GetNextTrade( ) )
+    {
+        // read ATR values and display as custom metric
+        symbolATR = StaticVarGet( trade.Symbol + "ATR" );
+        trade.AddCustomMetric( "Entry ATR", Lookup( symbolATR, trade.EntryDateTime ) );
+        symbolMADist = StaticVarGet( trade.Symbol + "MADist");
+        symbolhowManyCandles = StaticVarGet( trade.Symbol + "howManyCandles");
+        //symbolhowManyCandlesShort = StaticVarGet( trade.Symbol + "howManyCandlesShort");
+        symbolfractalCheck = StaticVarGet( trade.Symbol + "fractalCheck");
+        //symbolfractalCheckShort = StaticVarGet( trade.Symbol + "fractalCheckShort");
+        trade.AddCustomMetric( "DistFromMA", Lookup( symbolMADist, trade.EntryDateTime ) );
+        trade.AddCustomMetric( "Candles", Lookup( symbolhowManyCandles, trade.EntryDateTime ) );
+        trade.AddCustomMetric( "Fractals", Lookup( symbolfractalCheck, trade.EntryDateTime ) );
+
+        //trade.AddCustomMetric( "ShortCandles", Lookup( symbolhowManyCandlesShort, trade.EntryDateTime ) );
+        //trade.AddCustomMetric( "ShortFractal", Lookup( symbolfractalCheckShort, trade.EntryDateTime ) );
+        
+    }
+    
+
+    // iterate through open positions
+    for ( trade = bo.GetFirstOpenPos( ); trade; trade = bo.GetNextOpenPos( ) )
+    {
+        // read ATR values and display as custom metric
+        symbolATR = StaticVarGet( trade.Symbol + "ATR" );
+        trade.AddCustomMetric( "Entry ATR", Lookup( symbolATR, trade.EntryDateTime ) );
+        symbolMADistLong = StaticVarGet( trade.Symbol + "MADistLong");
+        symbolMADistShortg = StaticVarGet( trade.Symbol + "MADistShort");
+        symbolhowManyCandlesLong = StaticVarGet( trade.Symbol + "howManyCandlesLong");
+        symbolhowManyCandlesShort = StaticVarGet( trade.Symbol + "howManyCandlesShort");
+        symbolfractalCheckLong = StaticVarGet( trade.Symbol + "fractalCheckLong");
+        symbolfractalCheckShort = StaticVarGet( trade.Symbol + "fractalCheckShort");
+        trade.AddCustomMetric( "LongDist", Lookup( symbolMADistLong, trade.EntryDateTime ) );
+        trade.AddCustomMetric( "LongCandles", Lookup( symbolhowManyCandlesLong, trade.EntryDateTime ) );
+        trade.AddCustomMetric( "LongFractal", Lookup( symbolfractalCheckLong, trade.EntryDateTime ) );
+        
+        trade.AddCustomMetric( "ShortDist", Lookup( symbolMADistShortg, trade.EntryDateTime ) );
+        trade.AddCustomMetric( "ShortCandles", Lookup( symbolhowManyCandlesShort, trade.EntryDateTime ) );
+        trade.AddCustomMetric( "ShortFractal", Lookup( symbolfractalCheckShort, trade.EntryDateTime ) );
+    }
+
+    // generate trade list
+    bo.ListTrades( );
+}*/
